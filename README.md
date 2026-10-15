@@ -1,36 +1,144 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Regalando
 
-## Getting Started
+Liste di desideri da condividere con gli amici, mantenendo la sorpresa.
 
-First, run the development server:
+## Stato del progetto
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
+L’app usa Next.js, Clerk e Convex. Sono implementati liste e desideri, modifica e rimozione dei regali, inviti tramite link, accesso con account o come ospite, prenotazione e annullamento, revoca e riabilitazione degli accessi. La landing e il servizio supportano italiano e inglese.
+
+La prima versione viene preparata senza webhook attivi: i profili sono inizializzati e aggiornati dalla sessione verificata all’apertura del workspace; le richieste di cancellazione sono gestite manualmente dagli amministratori su Clerk e Convex, seguendo la [procedura di cancellazione](docs/MANUAL_DELETION.md). Il codice dei webhook resta predisposto per una futura attivazione, che non è un requisito di questo rilascio. Il flusso completo con account e browser reali distinti resta da verificare prima del rilascio. Riepilogo personale delle prenotazioni, upload e interfaccia degli avvisi sono ancora da completare.
+
+- [Piano MVP](docs/MVP_PLAN.md)
+- [Avanzamento e verifiche](docs/IMPLEMENTATION_STATUS.md)
+- [Cancellazione manuale degli account](docs/MANUAL_DELETION.md)
+
+## Avvio locale
+
+Servono Node.js 22.12 o superiore e pnpm 12.11.2. `.nvmrc` seleziona Node 24.6.0, secondo la configurazione locale scelta.
+
+```sh
+nvm use
+pnpm install --frozen-lockfile
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Aprire <http://localhost:3000>. La home `/` è una landing pubblica: «Accedi» apre `/sign-in`, «Crea la tua prima lista» apre `/sign-up`. Accesso e registrazione hanno una UI propria; Clerk gestisce credenziali, verifiche e sessioni. Se la configurazione dell’app è incompleta, viene mostrata `/setup`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Se dopo `nvm use` il comando `pnpm` non è disponibile, installarlo per la versione Node selezionata:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+nvm use
+npm install --global pnpm@12.11.2
+pnpm dev
+```
 
-## Learn More
+Con nvm, i pacchetti globali appartengono alla versione Node selezionata. Il progetto usa pnpm anche per aggiungere o reinstallare dipendenze.
 
-To learn more about Next.js, take a look at the following resources:
+Gli script usano Webpack: Turbopack ha prodotto un errore nella compilazione CSS/font in questo ambiente anche dopo il tentativo fuori dalla sandbox. Non occorre scaricare font o immagini per visualizzare l'interfaccia: Geist, Lora Italic, il nastro scultoreo della UI e le illustrazioni SVG sono locali al repository. Lora aggiunge accenti serif ai titoli della landing e alla tagline. Il nastro viene servito con Next/Image; [asset, font e prompt di generazione](docs/VISUAL_ASSETS.md).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Attivare Clerk e Convex
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. Creare/configurare un'app Clerk di sviluppo e attivare l'integrazione Convex seguendo la [guida ufficiale](https://docs.convex.dev/auth/clerk).
+2. Aggiungere le variabili di `.env.example` a `.env.local`, conservando gli eventuali valori esistenti. Non commettere chiavi reali.
+3. Selezionare un deployment Convex di sviluppo compatibile con il nuovo schema. Il deployment precedente usa Auth0 e può contenere documenti di prova con formato differente. Non applicare lo schema a dati esistenti senza verificarli; nessuna cancellazione o migrazione è stata eseguita.
+4. Sul deployment Convex impostare `CLERK_JWT_ISSUER_DOMAIN` con il Frontend API URL Clerk. Il relativo `applicationID` è `convex`.
+5. Eseguire `pnpm convex:dev` per distribuire esplicitamente le nuove funzioni nell'ambiente di sviluppo scelto. Il campo facoltativo `giftCount` delle liste richiede questa distribuzione; le liste esistenti senza contatore usano il conteggio diretto finché non ricevono un nuovo regalo.
+6. Riavviare Next.js; in produzione occorre anche ricostruire il frontend quando cambiano le variabili pubbliche. Visitare `/lists` per provare autenticazione, inizializzazione profilo e creazione di liste reali.
 
-## Deploy on Vercel
+Per questo rilascio non configurare endpoint Clerk o `CLERK_WEBHOOK_SIGNING_SECRET`. L’app funziona senza webhook; la procedura di cancellazione è manuale. La [guida ai webhook](docs/CLERK_WEBHOOKS.md) resta disponibile per un’integrazione futura.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Le pagine `/lists` e `/lists/[id]` usano il backend reale: elenco delle proprie liste, creazione, dettaglio e aggiunta di regali con prezzo, categoria e luoghi di acquisto. Liste, moduli e login condividono la palette nero/argento/oro. Se mancano le chiavi Clerk, `/lists` e le pagine di autenticazione portano a `/setup`; nessun login viene simulato nelle route reali.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Nel dettaglio della lista, **Invita amici** permette di creare un link, condividerlo dal dispositivo o copiarlo, rigenerarlo e disattivarlo. Gli amici aprono `/invite/[token]`, vedono titolo/proprietario/data e possono scegliere **Accedi come ospite** senza registrarsi, oppure entrare con un account. Con un account la lista resta in `/friends`; l’ospite deve conservare il link. La condivisione avviene tramite link: l’app non invia automaticamente email.
+
+Gli ospiti non inseriscono un nome per consultare la lista. Il nome è obbligatorio alla prenotazione, viene controllato sul backend e mostrato agli altri partecipanti; la vista del proprietario resta senza scelte o nomi di prenotazione. Ogni regalo ammette una sola prenotazione attiva, condivisa tra account e ospiti. Conferma e annullamento sono collegati alle mutation reali.
+
+Su scelta dell’utente, l’accesso ospite viene ricordato **solo nello stesso browser**, con una credenziale per invito in `localStorage` (`regalando:guest:`). Il backend conserva soltanto il digest; la credenziale non è aggiunta al link condiviso e non è esposta al proprietario o agli altri partecipanti. Il nome non identifica il titolare della prenotazione e non permette di annullarla. Cambiare browser/dispositivo o cancellare i dati del sito fa perdere questa possibilità; non elimina le prenotazioni sul server. La UI invita a conservare il link e spiega questo comportamento. Le modalità account e ospite restano distinte, senza trasferimento automatico delle scelte all’account.
+
+Il proprietario può rimuovere e riabilitare i partecipanti. Un partecipante rimosso non rientra tramite un nuovo link finché non viene riabilitato. La rimozione libera le eventuali prenotazioni di quella lista senza riportarne dettagli o conteggi al proprietario. Rigenerare/disattivare il link conserva gli accessi già attivi; le liste archiviate non accettano nuovi partecipanti.
+
+Gli accessi ospite sono gestiti con etichette anonime, create all’ingresso e indipendenti dalla prenotazione, per non rivelare nomi o scelte al proprietario. La revoca blocca quella sessione e libera le sue prenotazioni. Un ospite anonimo può rientrare da un browser nuovo: il servizio non verifica l’identità reale di chi possiede il link. Gli endpoint ospite rifiutano il proprietario autenticato e gli account revocati/disabilitati; il servizio non può riconoscere un proprietario che si presenta come persona anonima senza account.
+
+### Backend disponibile
+
+- Schema tipizzato per utenti, liste, regali, partecipazioni, inviti, prenotazioni e avvisi.
+- `profiles.ensure`: profilo derivato dalla sessione verificata, idempotente.
+- `profiles.me`: dati minimi del proprio profilo.
+- Webhook predisposto ma inattivo: `POST /clerk-users-webhook` sul dominio HTTP Convex. Richiede una firma valida e il Signing Secret; senza configurazione restituisce `503` senza scrivere. L’attivazione è rinviata.
+- La mutation interna `clerk.deleteUser` può essere avviata manualmente da un amministratore per bloccare il profilo e pulire a lotti contenuti, accessi, prenotazioni e avvisi. Un record tecnico senza nome personale/avatar conserva l’identificativo Clerk per impedire la riattivazione da sessioni obsolete. L’account Clerk va eliminato separatamente; vedere la procedura operativa.
+- `lists.create/getOwned/getOwnerDetail`: creazione e lettura di proprie liste.
+- `lists.getParticipantDetail`: lettura per un partecipante attivo, con prenotazioni.
+- `lists.getAccess/getJoined`: ruolo per il dettaglio e liste condivise con l’utente corrente.
+- `inviteLinks.create/rotate`, `invites.getOwnerLink/disable`: gestione proprietario del link, con token casuale generato sul server e digest SHA-256. La scrittura è una mutation interna autenticata; la condivisione ripetuta mantiene il link attivo.
+- `invites.preview/join`: anteprima pubblica minima e ingresso autenticato, idempotente, con controllo di revoche, stato account e archivio nella stessa transazione.
+- `memberships.list/revoke/restore`: gestione proprietario degli accessi, senza identità Clerk, email o informazioni sulle prenotazioni nelle risposte.
+- `guestAccess.create`, `guests.getDetail/listSessions/revoke/restore`: creazione server della credenziale ospite, lettura autorizzata tramite digest e gestione proprietario della sessione anonima.
+- `reservations.reserveGift/cancelGift`, `reserveAsGuest/cancelAsGuest`: prenotazione atomica e annullamento del solo autore, con controlli su partecipazione/sessione, lista, regalo, versione, archivio e disponibilità. Nessun ID autore viene accettato dal browser.
+- `gifts.create`: creazione autorizzata con validazione di prezzo e negozi; aggiorna il contatore `giftCount` e `updatedAt` della lista.
+- `gifts.update/remove`: modifica e rimozione riservate al proprietario della lista ricavata dal regalo; controllo versione, blocco su liste archiviate e validazione degli stessi campi della creazione. La rimozione nasconde il regalo e aggiorna il conteggio; gli eventuali riepiloghi di prenotazione vengono conservati e gli avvisi aggiornati internamente senza rivelare le scelte al proprietario.
+
+Le funzioni proprietario e partecipante sono separate. Il proprietario non può invocare la query dei partecipanti; la sua vista non legge la tabella prenotazioni. Il precedente flag `booked` negli argomenti del client e l'endpoint non verificato `/syncUser` sono stati rimossi, insieme alle prove Auth0 e ai log di token.
+
+La mutation di archivio/riattivazione delle liste esiste; il comando nella UI, l’area riepilogo prenotazioni, la visualizzazione degli avvisi e gli upload di immagini restano da completare. Gli avvisi sono già generati internamente quando cambia o viene rimosso un regalo prenotato.
+
+## Verifiche
+
+```sh
+pnpm typecheck
+pnpm lint
+pnpm test
+pnpm build
+pnpm test:e2e
+pnpm test:ui
+```
+
+Per Playwright serve Chromium installato. È possibile utilizzare Chrome già presente, ad esempio su macOS:
+
+```sh
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' pnpm test:e2e
+```
+
+Per eseguire i test browser senza usare il server già aperto, è possibile scegliere una porta e una cache separate:
+
+```sh
+PLAYWRIGHT_BASE_URL=http://localhost:3100 REGALANDO_BUILD_DIR=.next/verify-dev pnpm test:e2e
+```
+
+I test backend usano Vitest e convex-test; `lib/domain.test.ts` copre formattazione di prezzi e date, plurali e link. I test browser avviano e arrestano il server automaticamente; verificano la landing pubblica, l’ingresso al workspace e il caricamento del login Clerk in italiano, su desktop e viewport mobili a 390/360 px. `pnpm test:ui` verifica i componenti reali del dettaglio lista in React StrictMode, con dati di test e persistenza simulata: apertura e chiusura delle finestre, focus, modulo regalo, errori, filtri, categorie e caricamento delle illustrazioni su desktop/mobile. La fixture usa Vite già fornito da Vitest e non aggiunge route di prova all’app. Gli screenshot finiscono nella cartella dei risultati di Playwright. Login con un account reale, flusso autenticato e concorrenza sul backend reale restano da verificare. Per il login in sviluppo usare `localhost`, coerente con i redirect Clerk.
+
+Il login personalizzato copre password, codice email, recupero password e verifiche MFA/device trust. La registrazione rispetta i campi configurati sull’istanza e gestisce verifica email e completamento dei dati dopo Google. Il menu account è un componente proprio; «Gestisci account» apre il pannello Clerk per email, password e sicurezza. I test UI di questi flussi usano risposte simulate del SDK, senza inviare email o usare account reali; `lib/auth.test.ts` verifica i redirect ammessi e gli errori localizzati. Il ritorno OAuth passa da `/sso-callback`; eventuali requisiti di sicurezza della sessione passano da `/sign-in/tasks`.
+
+```sh
+pnpm convex:codegen
+```
+
+Rigenera i file in `convex/_generated` con il comando ufficiale, senza distribuire il codice del backend. Può richiedere accesso alla rete e alle credenziali Convex. Non modificare i file generati a mano.
+
+I test webhook usano firme HMAC reali con una chiave esclusivamente di test: verificano firme mancanti/errate/scadute, alterazione del payload, retry, ordine degli eventi, precedenza sui JWT e cancellazione a lotti. Non creano utenti o endpoint sui servizi e non sostituiscono una consegna reale Clerk → Convex.
+
+## Struttura
+
+Il sito supporta italiano e inglese. La prima visita segue `Accept-Language` per le lingue supportate, con italiano come fallback. Il selettore IT/EN nell’intestazione salva la scelta nel cookie tecnico `regalando-locale` per un anno. Gli URL e i link di invito restano invariati; il cambio lingua aggiorna anche le pagine server senza perdere i dati dei moduli client.
+
+Le stringhe italiane sono le chiavi del dizionario inglese in `lib/i18n/messages.en.json`. Nei componenti client usare `useI18n()`; nei componenti server usare `await getI18n()`. Il controllo di copertura in `lib/i18n.test.ts` segnala nuove chiavi o errori Convex privi di traduzione. I testi inseriti dagli utenti non vengono tradotti. Date e prezzi usano la lingua selezionata, mantenendo la valuta in euro; i componenti Clerk ricevono la localizzazione corrispondente.
+
+I risultati dei test browser sono separati in `test-results/ui` e `test-results/e2e`, per consentire l’esecuzione contemporanea delle due suite.
+
+```text
+app/(auth)/           Login, registrazione e callback personalizzati
+app/(invites)/        Anteprima pubblica e accettazione invito
+app/components/auth/  UI di autenticazione con gli hook Clerk
+app/(workspace)/      Primo flusso con backend reale
+app/components/ui/    Brand, artwork, moduli e dialog condivisi
+app/components/live/  Dashboard, dettaglio e profilo reali
+app/providers/        Provider della lingua, Clerk e Convex
+lib/i18n/             Dizionario delle traduzioni inglesi
+convex/               Schema, funzioni, autorizzazioni e test
+tests/e2e/            Percorsi critici su desktop e mobile
+```
+
+Schema e funzioni sono stati sincronizzati sul deployment Convex di sviluppo. Nessuna pubblicazione del frontend o distribuzione in produzione è stata eseguita. La cartella ignorata `.next.previous` conserva la cache del prototipo precedente; non contiene codice sorgente necessario all'app.
+
+Inviti e partecipanti: test backend su permessi, anteprima, rotazione/disattivazione, ingresso ripetuto, revoca, riabilitazione e archivio. I test UI verificano condivisione/copia, conferme, errori, ritorno dal login e lettura dell’amico su desktop/mobile con persistenza simulata. Le route reali verificano anche l’invito pubblico invalido, `noindex` e `Referrer-Policy: no-referrer`; nessun invito reale viene spedito dai test. Resta da provare il percorso completo con due account reali distinti.
+
+Accesso ospite e prenotazioni: test su nome obbligatorio, credenziali diverse con nomi uguali, retry/conflitti fra ospiti e account, annullamento del solo autore, revoca, archivio, versioni e risposte del proprietario identiche prima/dopo la scelta. I test browser coprono memoria locale, ritorno dal link, indisponibilità, conferma/annullamento, errori e gestione ospiti. Resta la prova completa con due browser distinti e prenotazioni simultanee sul deployment reale; i mock non sostituiscono quella verifica.
