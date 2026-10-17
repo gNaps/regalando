@@ -21,7 +21,9 @@ export const revoke = mutation({ args: { membershipId: v.id("memberships") }, ha
   for (const reservation of reservations) {
     if (reservation.listId === member.listId) await ctx.db.patch(reservation._id, { status: "cancelled", updatedAt: Date.now() });
   }
-  // Identical response regardless of whether the member had chosen any gifts.
+  const notes = await ctx.db.query("giftNotes").withIndex("by_user", q => q.eq("userId", member.userId)).collect();
+  for (const note of notes) if (note.listId === member.listId) await ctx.db.delete(note._id);
+  // Identical response regardless of whether the member had chosen any gifts or written notes.
 } });
 
 export const restore = mutation({ args: { membershipId: v.id("memberships") }, handler: async (ctx, { membershipId }) => {

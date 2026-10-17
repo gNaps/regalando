@@ -15,7 +15,8 @@ export function Dialog({ title, subtitle, onClose, children, dirty = false, clas
     const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     unmounting.current = false;
     dialog?.showModal();
-    dialog?.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, select')?.focus({ preventScroll: true });
+    // A field marked data-autofocus wins over the first input, so optional helpers can sit above the main field.
+    (dialog?.querySelector<HTMLElement>('[data-autofocus]') ?? dialog?.querySelector<HTMLElement>('input:not([type="hidden"]), textarea, select'))?.focus({ preventScroll: true });
     return () => { unmounting.current = true; dialog?.close(); previousFocus?.focus({ preventScroll: true }); };
   }, []);
   function confirmClose() { return !dirty || window.confirm(t("Vuoi chiudere e perdere le modifiche?")); }

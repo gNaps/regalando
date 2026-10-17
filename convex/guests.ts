@@ -42,6 +42,8 @@ export const revoke = mutation({ args: { guestSessionId: v.id("guestSessions") }
   await ctx.db.patch(guest._id, { status: "revoked" });
   const reservations = await ctx.db.query("reservations").withIndex("by_guest", q => q.eq("guestSessionId", guest._id).eq("status", "active")).collect();
   for (const reservation of reservations) await ctx.db.patch(reservation._id, { status: "cancelled", updatedAt: Date.now() });
+  const notes = await ctx.db.query("giftNotes").withIndex("by_guest", q => q.eq("guestSessionId", guest._id)).collect();
+  for (const note of notes) await ctx.db.delete(note._id);
 } });
 
 export const restore = mutation({ args: { guestSessionId: v.id("guestSessions") }, handler: async (ctx, { guestSessionId }) => {

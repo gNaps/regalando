@@ -245,3 +245,50 @@ test("i partecipanti non possono archiviare o riattivare la lista", async ({ pag
     await expect(page.getByRole("button", { name: /^(Archivia lista|Riattiva lista)$/ })).toHaveCount(0);
   }
 });
+
+test("il link del prodotto precompila i campi vuoti senza toccare quelli scritti a mano", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Aggiungi regalo", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Nuovo regalo", exact: true });
+  const fillButton = dialog.getByRole("button", { name: "Compila dal sito" });
+  await expect(fillButton).toBeDisabled();
+  await dialog.getByRole("textbox", { name: "Descrizione" }).fill("Colore blu");
+  await dialog.getByRole("textbox", { name: "Hai già un link?" }).fill("https://example.com/vaso?utm_source=x");
+  await fillButton.click();
+  await expect(dialog.getByRole("status")).toContainText("Controllali prima di salvare");
+  await expect(dialog.getByRole("textbox", { name: "Nome del regalo" })).toHaveValue("Vaso in ceramica");
+  await expect(dialog.getByRole("textbox", { name: "Descrizione" })).toHaveValue("Colore blu");
+  await expect(dialog.getByRole("spinbutton", { name: "Prezzo indicativo (€)" })).toHaveValue("45.50");
+  await expect(dialog.getByRole("textbox", { name: "Link online" })).toHaveValue("https://example.com/vaso");
+  await expect(dialog.getByRole("combobox", { name: "Categoria" })).toHaveValue("other");
+  await dialog.getByRole("button", { name: "Aggiungi alla lista" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Dettagli di Vaso in ceramica", exact: true }).click();
+  const detail = page.getByRole("dialog", { name: "Vaso in ceramica", exact: true });
+  await expect(detail).toContainText("45,50");
+  await expect(detail.getByRole("link", { name: /Vai al sito/ })).toHaveAttribute("href", "https://example.com/vaso");
+});
+
+test("senza dettagli leggibili o con un errore il link resta e il modulo si compila a mano", async ({ page }) => {
+  await page.goto("/?preview-empty");
+  await page.getByRole("button", { name: "Aggiungi regalo", exact: true }).click();
+  let dialog = page.getByRole("dialog", { name: "Nuovo regalo", exact: true });
+  await dialog.getByRole("textbox", { name: "Hai già un link?" }).fill("https://example.com/vaso");
+  await dialog.getByRole("textbox", { name: "Hai già un link?" }).press("Enter");
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("status")).toContainText("Non siamo riusciti a leggere il sito");
+  await expect(dialog.getByRole("textbox", { name: "Link online" })).toHaveValue("https://example.com/vaso");
+  await expect(dialog.getByRole("textbox", { name: "Nome del regalo" })).toHaveValue("");
+
+  await page.goto("/?preview-error");
+  await page.getByRole("button", { name: "Aggiungi regalo", exact: true }).click();
+  dialog = page.getByRole("dialog", { name: "Nuovo regalo", exact: true });
+  await dialog.getByRole("textbox", { name: "Hai già un link?" }).fill("https://example.com/vaso");
+  await dialog.getByRole("button", { name: "Compila dal sito" }).click();
+  await expect(dialog.getByRole("status")).toContainText("Hai richiesto molte anteprime");
+  await dialog.getByRole("textbox", { name: "Nome del regalo" }).fill("Un vaso");
+  await dialog.getByRole("button", { name: "Aggiungi alla lista" }).click();
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole("button", { name: "Dettagli di Un vaso", exact: true }).click();
+  await expect(page.getByRole("dialog", { name: "Un vaso", exact: true }).getByRole("link", { name: /Vai al sito/ })).toHaveAttribute("href", "https://example.com/vaso");
+});

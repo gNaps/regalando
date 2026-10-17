@@ -29,14 +29,22 @@ export function DesireSculpture() {
   return <div className="desire-sculpture" aria-hidden="true"><div className="sculpture-orbit" /><Image src="/images/desire-ribbon.png" alt="" fill sizes="(max-width: 760px) 75vw, 550px" loading="eager" fetchPriority="high" className="ribbon-image" /><span className="sculpture-caption">{t("IL BELLO È NELL’ATTESA.")}</span></div>;
 }
 
-export function CoverArt({ cover, preview = false }: { cover: Cover; preview?: boolean }) {
+export function CoverArt({ cover, preview = false, imageUrl }: { cover: Cover; preview?: boolean; imageUrl?: string | null }) {
+  if (imageUrl) return <UploadedPhoto url={imageUrl} className="cover-art uploaded-cover" />;
   return <div className={`cover-art cover-${cover}`} aria-hidden="true">
     <Image src={coverArtwork[cover]} alt="" fill sizes={preview ? "85px" : "(max-width: 760px) 96px, 200px"} loading={preview ? "lazy" : "eager"} />
   </div>;
 }
 
-export function ProductArt({ kind }: { kind: Illustration }) {
+export function ProductArt({ kind, imageUrl }: { kind: Illustration; imageUrl?: string | null }) {
+  if (imageUrl) return <UploadedPhoto url={imageUrl} className="product-art uploaded-product" />;
   return <div className={`product-art product-${kind}`} aria-hidden="true">
     <Image src={productArtwork[kind]} alt="" fill sizes="96px" />
   </div>;
+}
+
+function UploadedPhoto({ url, className }: { url: string; className: string }) {
+  // Files are already resized and compressed before storage.
+  // eslint-disable-next-line @next/next/no-img-element
+  return <div className={className} aria-hidden="true"><img src={url} alt="" loading="lazy" decoding="async" /></div>;
 }

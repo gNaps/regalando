@@ -18,7 +18,7 @@ export const getOwned = query({ args: {}, handler: async ctx => {
   return Promise.all(lists.map(async list => {
     // `giftCount` è denormalizzato; le liste create prima del campo ricadono sul conteggio diretto.
     const giftCount = list.giftCount ?? (await ctx.db.query("gifts").withIndex("by_list", q => q.eq("listId", list._id).eq("removed", false)).collect()).length;
-    return { id: list._id, title: list.title, description: list.description, date: list.date, cover: list.cover, status: list.status, giftCount };
+    return { id: list._id, title: list.title, description: list.description, date: list.date, cover: list.cover, imageUrl: list.imageId ? await ctx.storage.getUrl(list.imageId) : null, status: list.status, giftCount };
   }));
 } });
 
@@ -35,7 +35,7 @@ export const getOwnerDetail = query({ args: { listId: v.id("lists") }, handler: 
   const { list } = await requireOwner(ctx, listId);
   const gifts = await ctx.db.query("gifts").withIndex("by_list", q => q.eq("listId", listId).eq("removed", false)).collect();
   // Nessuna lettura delle prenotazioni nella vista del proprietario.
-  return { list, gifts };
+  return { list: { ...list, imageUrl: list.imageId ? await ctx.storage.getUrl(list.imageId) : null }, gifts: await Promise.all(gifts.map(async gift => ({ ...gift, imageUrl: gift.imageId ? await ctx.storage.getUrl(gift.imageId) : null }))) };
 } });
 
 export const getParticipantDetail = query({ args: { listId: v.id("lists") }, handler: async (ctx, { listId }) => {
@@ -63,7 +63,7 @@ export const getJoined = query({ args: {}, handler: async ctx => {
     const owner = await ctx.db.get(list.ownerId);
     if (!owner || owner.status !== "active") return null;
     const giftCount = list.giftCount ?? (await ctx.db.query("gifts").withIndex("by_list", q => q.eq("listId", list._id).eq("removed", false)).collect()).length;
-    return { id: list._id, title: list.title, description: list.description, owner: owner.name, date: list.date, cover: list.cover, status: list.status, giftCount };
+    return { id: list._id, title: list.title, description: list.description, owner: owner.name, date: list.date, cover: list.cover, imageUrl: list.imageId ? await ctx.storage.getUrl(list.imageId) : null, status: list.status, giftCount };
   }));
   return lists.filter(list => list !== null);
 } });

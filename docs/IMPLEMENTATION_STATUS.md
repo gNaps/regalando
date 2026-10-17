@@ -130,3 +130,34 @@ I test browser attuali verificano la landing pubblica e l’ingresso al workspac
 - 58 test unitari e 74 test UI desktop/mobile superati, inclusi conflitti, idempotenza, scoping delle credenziali, revoche, nomi uguali e assenza di variazioni nei payload owner dopo una prenotazione. TypeScript, ESLint e build superati; schema e funzioni aggiornati sul deployment di sviluppo con typecheck abilitato.
 - Superati anche i 18 test delle route reali, incluse le informative aggiornate, le pagine di accesso e l’invito pubblico con header contro referrer e indicizzazione, su desktop e mobile a 390/360 px.
 - Resta la prova completa del percorso ospite con due browser reali distinti, incluso ritorno dal link dopo prenotazione e concorrenza effettiva sul deployment. Nessuna prenotazione reale né account Clerk di prova creati dagli strumenti.
+
+## Aggiunta da link — 17 ottobre 2026
+
+- `convex/lib/linkMetadata.ts`: estrattore puro (JSON-LD `Product`, Open Graph, `<title>`), normalizzazione dei prezzi in formato italiano e internazionale, pulizia dei link e fallback dallo slug Amazon. Test in `linkMetadata.test.ts`.
+- `convex/lib/hostGuard.ts`: blocco di host e indirizzi privati, loopback, link-local, mappati IPv4 e scorciatoie numeriche. Test in `hostGuard.test.ts`.
+- `convex/productLinks.ts` (`"use node"`): action `preview` con redirect manuali ricontrollati a ogni salto, limite di 3 MB (i dati prodotto di IKEA e Zalando stanno oltre 1 MB), timeout di 5 s e solo risposte HTML. Errori di rete e muri anti-bot restituiscono il solo link ripulito; non viene scritto nulla.
+- `convex/previewQuota.ts` e tabella `previewQuota`: autenticazione e limite di 30 richieste ogni dieci minuti per account. Lo schema richiede `pnpm convex:dev` per essere distribuito.
+- `GiftForm`: blocco «Hai già un link?» con **Compila dal sito**, disponibile solo in creazione. Riempie soltanto i campi vuoti, apre «Dove trovarlo» con il link, lascia la categoria su «Altro» e mostra un avviso di controllo. Un link incollato senza anteprima viene comunque salvato come luogo online. Il focus iniziale resta sul nome del regalo (`data-autofocus`).
+- Verifiche: Vitest (estrattore, guardia host, quota, traduzioni), Playwright UI su desktop e mobile con fixture del backend, prova manuale dell’estrattore su pagine reali (IKEA e Feltrinelli leggibili, Zalando con prezzo solo nel testo, Amazon e Decathlon bloccati con fallback).
+- Limiti: nessun salvataggio dell’immagine (seconda fase), nessuna cache delle anteprime, categoria non suggerita, DNS rebinding tra risoluzione e connessione non coperto, prezzo proposto solo in euro.
+
+## Regalo di gruppo e note tra amici — 17 ottobre 2026
+
+- Decisione di prodotto: il gruppo lo propone chi sceglie il regalo, non il proprietario. Il flag `gifts.group` introdotto in una prima stesura è stato rimosso da mutation e UI; resta nello schema come campo facoltativo ignorato per compatibilità con i documenti già scritti sul deployment di sviluppo.
+- Schema: `reservations.group` (proposta o adesione a un gruppo) e `reservations.amountCents` (quota facoltativa); tabella `giftNotes` con indici per regalo, lista, utente e ospite.
+- `reservations`: `group: true` alla prima prenotazione crea una proposta; chi ha prenotato da solo può aprire al gruppo con una nuova conferma e richiuderlo solo se è ancora solo; gli altri aderiscono finché esiste una prenotazione aperta. Più prenotazioni attive convivono; riconfermare aggiorna la quota; l’annullamento tocca solo la propria. La vista partecipante espone `group`, `contributions` (partecipanti, totale, propria quota) e `noteCount`; `reservation` resta per i regali singoli.
+- Il proprietario non riceve mai flag, partecipanti, quote, totali o note; verificato dai test sul JSON di `getOwnerDetail`.
+- `convex/notes.ts`: lettura e scrittura solo tramite `requireParticipant` o `requireGuest`; nessuna query per il proprietario. Revoca di partecipante o ospite e cancellazione account eliminano le note; le liste archiviate restano leggibili senza nuove note.
+- UI partecipante/ospite: su un regalo libero «Prenota regalo» oppure «Proponi regalo di gruppo»; su una propria prenotazione «Apri al gruppo»; nel gruppo elenco di chi partecipa, progresso rispetto al prezzo, «Modifica quota», «Lo regalo da solo» (solo se soli) ed «Esci dal gruppo». Sezione «Note tra amici» con firma obbligatoria per gli ospiti. UI proprietario invariata.
+- Verifiche: Vitest (`group.test.ts`), Playwright UI (`group-notes.spec.ts`) su desktop e mobile, suite complete verdi. Lo schema richiede `pnpm convex:dev`.
+- Limiti: nessun pagamento o raccolta reale; le quote sono dichiarazioni; nessuna notifica per nuove note o adesioni.
+
+
+## Foto personalizzate — 17 ottobre 2026
+
+Caricamento, anteprima, sostituzione e rimozione dai form di creazione e modifica di liste e regali; modifica completa della testata lista tramite **Modifica lista**, con immagini nelle raccolte e nelle viste proprietario/partecipante/ospite. Card e illustrazioni predefinite conservate. Compressione JPEG nel browser (1200 px, 250 KiB), input massimo 10 MiB, quote backend di 10 MiB/account e 800 MiB totali, massimo 30 caricamenti/24 ore. Pulizia dei file su sostituzione, rimozione regalo e cancellazione account. Nessuna importazione automatica delle foto dai link prodotto. Le quote non comprendono il traffico in uscita. Le URL storage già condivise non vengono revocate insieme a un invito.
+
+
+## Revisione delle pagine — 17 ottobre 2026
+
+FAQ bilingui nella landing. Raccolte personali e degli amici con intestazione compatta, conteggi, ricerca e card su due colonne desktop e una mobile. Dettaglio proprietario con testata, azioni e filtri rivisti; card regalo conservate. Navigazione tra raccolte nascosta nel dettaglio. Padding corretto nella conferma di archiviazione. Form lista e regalo con foto compressa, anteprima e rimozione; salvataggio atomico tramite `listEditor.save` e `giftEditor.save`, con cleanup dello storage in caso di errore. Verifiche backend: 100 test superati; TypeScript ed ESLint superati.

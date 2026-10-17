@@ -1,0 +1,71 @@
+import { expect, test } from '@playwright/test';
+
+test('crea una lista con foto dal modulo, senza caricamenti prima di salvare', async ({page}) => {
+  await page.goto('/?screen=lists');
+  await page.getByRole('button',{name:'Crea una lista',exact:true}).first().click();
+  const dialog=page.getByRole('dialog',{name:'Nuova lista',exact:true});
+  await dialog.getByLabel('Nome della lista').fill('La mia nuova lista');
+  await dialog.locator('input[type=file]').setInputFiles('tests/fixtures/photo.jpg');
+  await expect(dialog.getByRole('status')).toContainText('Foto pronta');
+  await expect(page.locator('body')).not.toHaveAttribute('data-list-save-calls');
+  await dialog.getByRole('button',{name:'Crea la tua lista'}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('body')).toHaveAttribute('data-list-save-calls','1');
+  await expect(page.locator('body')).toHaveAttribute('data-destination','/lists/fixture-list');
+});
+
+test('modifica testata e foto dal modulo precompilato e le conserva in caso di errore', async ({page}) => {
+  await page.goto('/');
+  await page.getByRole('button',{name:'Modifica lista',exact:true}).click();
+  let dialog=page.getByRole('dialog',{name:'Modifica lista',exact:true});
+  await expect(dialog.getByLabel('Nome della lista')).toHaveValue('Compleanno');
+  await dialog.getByLabel('Nome della lista').fill('Una nuova occasione');
+  await dialog.getByRole('textbox',{name:'Descrizione',exact:false}).fill('I miei nuovi desideri');
+  await dialog.getByLabel('Data dell’occasione',{exact:false}).fill('2026-12-25');
+  await dialog.getByRole('button',{name:'Argento',exact:true}).click();
+  await dialog.locator('input[type=file]').setInputFiles('tests/fixtures/photo.jpg');
+  await dialog.getByRole('button',{name:'Salva modifiche'}).click();
+  await expect(page.getByRole('heading',{name:'Una nuova occasione',exact:true})).toBeVisible();
+  await expect(page.locator('.detail-copy')).toContainText('I miei nuovi desideri');
+  await expect(page.locator('.detail-meta')).toContainText('25 dicembre');
+  await expect(page.locator('.detail-hero .uploaded-cover img')).toBeVisible();
+  await page.getByRole('button',{name:'Modifica lista',exact:true}).click();
+  dialog=page.getByRole('dialog',{name:'Modifica lista',exact:true});
+  await dialog.getByRole('button',{name:'Rimuovi foto'}).click();
+  await dialog.getByRole('button',{name:'Salva modifiche'}).click();
+  await expect(page.locator('.detail-hero .uploaded-cover')).toHaveCount(0);
+  await page.goto('/?save-error');
+  await page.getByRole('button',{name:'Modifica lista',exact:true}).click();
+  dialog=page.getByRole('dialog',{name:'Modifica lista',exact:true});
+  await dialog.getByLabel('Nome della lista').fill('Conserva questo nome');
+  await dialog.locator('input[type=file]').setInputFiles('tests/fixtures/photo.jpg');
+  await dialog.getByRole('button',{name:'Salva modifiche'}).click();
+  await expect(dialog.getByRole('alert')).toContainText('Non siamo riusciti a salvare');
+  await expect(dialog.getByLabel('Nome della lista')).toHaveValue('Conserva questo nome');
+  await expect(dialog.getByRole('img',{name:'Anteprima della foto'})).toBeVisible();
+});
+
+test('i form regalo creano, sostituiscono e rimuovono la foto',async({page})=>{
+  await page.goto('/');
+  await expect(page.locator('.detail-navigation').getByRole('button',{name:'Aggiungi foto',exact:true})).toHaveCount(0);
+  await page.getByRole('button',{name:'Aggiungi regalo',exact:true}).click();
+  let dialog=page.getByRole('dialog',{name:'Nuovo regalo',exact:true});
+  await dialog.getByLabel('Nome del regalo').fill('Un regalo con foto');
+  await dialog.locator('input[type=file]').setInputFiles('tests/fixtures/photo.jpg');
+  await expect(dialog.getByText('Foto pronta:',{exact:false})).toBeVisible();
+  await dialog.getByRole('button',{name:'Aggiungi alla lista'}).click();
+  await expect(dialog).toHaveCount(0);
+  await expect(page.locator('.gift-card').filter({hasText:'Un regalo con foto'}).locator('.uploaded-product img')).toBeVisible();
+  await page.getByRole('button',{name:'Dettagli di Un regalo con foto',exact:true}).click();
+  await page.getByRole('button',{name:'Modifica regalo',exact:true}).click();
+  dialog=page.getByRole('dialog',{name:'Modifica regalo',exact:true});
+  await expect(dialog.getByRole('img',{name:'Anteprima della foto'})).toBeVisible();
+  await dialog.locator('input[type=file]').setInputFiles('tests/fixtures/photo.jpg');
+  await dialog.getByRole('button',{name:'Salva regalo'}).click();
+  await page.getByRole('button',{name:'Modifica regalo',exact:true}).click();
+  dialog=page.getByRole('dialog',{name:'Modifica regalo',exact:true});
+  await dialog.getByRole('button',{name:'Rimuovi foto'}).click();
+  await dialog.getByRole('button',{name:'Salva regalo'}).click();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.gift-card').filter({hasText:'Un regalo con foto'}).locator('.uploaded-product')).toHaveCount(0);
+});

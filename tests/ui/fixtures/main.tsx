@@ -1,3 +1,4 @@
+import LiveListsPage from "@/app/components/live/list-overview";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { LiveListDetail } from "@/app/components/live/list-detail";
@@ -19,5 +20,5 @@ const auth = new URLSearchParams(window.location.search).get("auth");
 const screen = new URLSearchParams(window.location.search).get("screen");
 const initialLocale = resolveLocale(document.cookie.split("; ").find(cookie => cookie.startsWith(`${localeCookie}=`))?.split("=")[1]);
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><LocaleProvider initialLocale={initialLocale}><div style={{ padding: "16px 22px", display: "flex", justifyContent: "flex-end" }}><LanguageSwitcher /></div>{screen === "invite" ? <main className="main-content invite-main"><InviteEntry token={"A".repeat(43)} /></main> : screen === "friends" ? <main className="main-content"><FriendsOverview /></main> : auth === "menu" ? <header className="app-header"><div className="header-inner"><span>Regalando</span><AccountMenu /></div></header> : auth ? <main className="auth-panel" style={{ maxWidth: 440, margin: "40px auto" }}>{auth === "signup" ? <CustomSignUp options={options} /> : <CustomSignIn options={options} />}</main> : <main className="main-content"><LiveListDetail id="fixture-list" /></main>}</LocaleProvider></StrictMode>,
+  <StrictMode><LocaleProvider initialLocale={initialLocale}><div style={{ padding: "16px 22px", display: "flex", justifyContent: "flex-end" }}><LanguageSwitcher /></div>{screen === "lists" ? <main className="main-content"><LiveListsPage /></main> : screen === "invite" ? <main className="main-content invite-main"><InviteEntry token={"A".repeat(43)} /></main> : screen === "friends" ? <main className="main-content"><FriendsOverview /></main> : auth === "menu" ? <header className="app-header"><div className="header-inner"><span>Regalando</span><AccountMenu /></div></header> : auth ? <main className="auth-panel" style={{ maxWidth: 440, margin: "40px auto" }}>{auth === "signup" ? <CustomSignUp options={options} /> : <CustomSignIn options={options} />}</main> : <main className="main-content"><LiveListDetail id="fixture-list" /></main>}</LocaleProvider></StrictMode>,
 );

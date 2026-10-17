@@ -1,3 +1,4 @@
+import { deleteImage } from "./lib/images";
 import { v } from "convex/values";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
@@ -55,15 +56,25 @@ export const purgeUser = internalMutation({
     if (notices.length) { for (const notice of notices) await ctx.db.delete(notice._id); await again(); return; }
     const memberships = await ctx.db.query("memberships").withIndex("by_user", q => q.eq("userId", userId)).take(batchSize);
     if (memberships.length) { for (const member of memberships) await ctx.db.delete(member._id); await again(); return; }
+    const notes = await ctx.db.query("giftNotes").withIndex("by_user", q => q.eq("userId", userId)).take(batchSize);
+    if (notes.length) { for (const note of notes) await ctx.db.delete(note._id); await again(); return; }
 
     const list = await ctx.db.query("lists").withIndex("by_owner", q => q.eq("ownerId", userId)).first();
-    if (!list) return; // Keep only the tombstone to reject delayed events and old JWTs.
+    if (!list) {
+      const quota = await ctx.db.query("imageUploadQuota").withIndex("by_user", q => q.eq("userId", userId)).unique();
+      if (quota) await ctx.db.delete(quota._id);
+      const usage = await ctx.db.query("imageUsage").withIndex("by_key", q => q.eq("key", String(userId))).unique();
+      if (usage) await ctx.db.delete(usage._id);
+      return;
+    } // Keep only the tombstone to reject delayed events and old JWTs.
     const listReservation = await ctx.db.query("reservations").withIndex("by_list", q => q.eq("listId", list._id)).first();
     if (listReservation) { await purgeReservation(ctx, listReservation._id); await again(); return; }
+    const listNotes = await ctx.db.query("giftNotes").withIndex("by_list", q => q.eq("listId", list._id)).take(batchSize);
+    if (listNotes.length) { for (const note of listNotes) await ctx.db.delete(note._id); await again(); return; }
     const gifts = await ctx.db.query("gifts").withIndex("by_list", q => q.eq("listId", list._id)).take(batchSize);
     if (gifts.length) {
       for (const gift of gifts) {
-        if (gift.imageId) await ctx.storage.delete(gift.imageId);
+        await deleteImage(ctx, userId, gift.imageId);
         await ctx.db.delete(gift._id);
       }
       await again(); return;
@@ -74,6 +85,7 @@ export const purgeUser = internalMutation({
     if (invites.length) { for (const invite of invites) await ctx.db.delete(invite._id); await again(); return; }
     const guests = await ctx.db.query("guestSessions").withIndex("by_list", q => q.eq("listId", list._id)).take(batchSize);
     if (guests.length) { for (const guest of guests) await ctx.db.delete(guest._id); await again(); return; }
+    await deleteImage(ctx, userId, list.imageId);
     await ctx.db.delete(list._id);
     await again();
   },
