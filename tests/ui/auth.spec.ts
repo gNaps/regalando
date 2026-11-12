@@ -1,5 +1,75 @@
 import { expect, test, type Page } from "@playwright/test";
 
+test("lo skeleton del form è visibile sia nell’attesa della pagina sia nell’attesa di Clerk", async ({ page }) => {
+  await page.goto("/?auth=signin&route-loading&clerk-loading");
+  const skeleton = page.locator(".auth-sign-in-loading");
+  await expect(skeleton).toBeVisible();
+  await expect(skeleton.locator(".auth-loading-input")).toBeVisible();
+  await expect(page.getByText("Caricamento…", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+  const before = await page.locator(".auth-panel").boundingBox();
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-auth-page-ready")));
+  await expect(page.locator(".auth-sign-in-stage")).toBeVisible();
+  await expect(skeleton.locator(".auth-loading-input")).toBeVisible();
+  const after = await page.locator(".auth-panel").boundingBox();
+  expect(Math.abs(after!.height - before!.height)).toBeLessThanOrEqual(1);
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-clerk-ready")));
+  await expect(page.getByLabel("Email o nome utente")).toBeEditable();
+});
+
+test("il form compare mentre l’anteprima sfuma, senza un frame vuoto", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto("/?auth=signin&clerk-loading");
+  await expect(page.getByRole("status")).toBeVisible();
+  const transition = await page.evaluate(async () => {
+    const stage = document.querySelector<HTMLElement>(".auth-sign-in-stage")!;
+    const placeholder = stage.querySelector<HTMLElement>(".auth-sign-in-placeholder")!;
+    // Flush the initial style before changing the simulated SDK state.
+    void getComputedStyle(placeholder).opacity;
+    window.dispatchEvent(new Event("fixture-clerk-ready"));
+    await new Promise<void>(resolve => requestAnimationFrame(() => resolve()));
+    const content = stage.querySelector<HTMLElement>(".auth-sign-in-content")!;
+    void getComputedStyle(content).opacity;
+    const animations = stage.getAnimations({ subtree: true });
+    for (const animation of animations) { animation.pause(); animation.currentTime = 160; }
+    const result = {
+      placeholder: Number(getComputedStyle(placeholder).opacity),
+      content: Number(getComputedStyle(content).opacity),
+      visibility: getComputedStyle(placeholder).visibility,
+    };
+    for (const animation of animations) animation.finish();
+    return result;
+  });
+  expect(transition.placeholder).toBeGreaterThan(0);
+  expect(transition.placeholder).toBeLessThan(1);
+  expect(transition.content).toBeGreaterThan(0);
+  expect(transition.content).toBeLessThan(1);
+  expect(transition.visibility).toBe("visible");
+  await expect(page.locator(".auth-sign-in-placeholder")).toBeHidden();
+  await expect(page.getByLabel("Email o nome utente")).toBeEditable();
+});
+
+test("il login mantiene le dimensioni durante il caricamento e rispetta il movimento ridotto", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/?auth=signin&clerk-loading");
+  await expect(page.getByRole("status")).toHaveText("Caricamento dell’accesso…");
+  await expect(page.getByRole("textbox")).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Continua", exact: true })).toHaveCount(0);
+  const panel = page.locator(".auth-panel");
+  const before = await panel.boundingBox();
+  await page.evaluate(() => window.dispatchEvent(new Event("fixture-clerk-ready")));
+  await expect(page.getByLabel("Email o nome utente")).toBeEditable();
+  await expect(page.getByRole("status")).toHaveCount(0);
+  const after = await panel.boundingBox();
+  expect(before).not.toBeNull();
+  expect(after).not.toBeNull();
+  expect(Math.abs(after!.height - before!.height)).toBeLessThanOrEqual(1);
+  expect(Math.abs(after!.y - before!.y)).toBeLessThanOrEqual(1);
+  await expect(page.locator(".auth-sign-in-content")).toHaveCSS("animation-name", "none");
+  await identify(page);
+  await expect(page.getByLabel("Password", { exact: true })).toBeVisible();
+});
+
 async function identify(page: Page) {
   await page.getByLabel("Email o nome utente").fill("giulia@example.org");
   await page.getByRole("button", { name: "Continua", exact: true }).click();

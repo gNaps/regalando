@@ -18,6 +18,7 @@ import type * as images from "../images.js";
 import type * as inviteLinks from "../inviteLinks.js";
 import type * as invites from "../invites.js";
 import type * as lib_access from "../lib/access.js";
+import type * as lib_betaLimits from "../lib/betaLimits.js";
 import type * as lib_guestAccess from "../lib/guestAccess.js";
 import type * as lib_hostGuard from "../lib/hostGuard.js";
 import type * as lib_images from "../lib/images.js";
@@ -51,6 +52,7 @@ declare const fullApi: ApiFromModules<{
   inviteLinks: typeof inviteLinks;
   invites: typeof invites;
   "lib/access": typeof lib_access;
+  "lib/betaLimits": typeof lib_betaLimits;
   "lib/guestAccess": typeof lib_guestAccess;
   "lib/hostGuard": typeof lib_hostGuard;
   "lib/images": typeof lib_images;

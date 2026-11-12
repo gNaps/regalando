@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "title": "Il mio compleanno",
+  "description": "Qualche idea per chi vuole farmi una sorpresa.",
+  "date": "2027-06-15",
+  "cover": "plum",
+  "gifts": [
+    {
+      "title": "Cuffie wireless",
+      "description": "Colore nero, con cancellazione del rumore.",
+      "priceCents": 12990,
+      "currency": "EUR",
+      "category": "tech",
+      "priority": "favorite",
+      "locations": [
+        { "kind": "online", "url": "https://example.com/cuffie" }
+      ]
+    },
+    {
+      "title": "Un vaso in ceramica",
+      "category": "design",
+      "locations": [
+        { "kind": "physical", "name": "Bottega di ceramica", "address": "Milano" }
+      ]
+    }
+  ]
+}

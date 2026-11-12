@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { Doc, Id } from "@/convex/_generated/dataModel";
 import { giftCategories } from "@/lib/domain";
 import { getFunctionName, type FunctionReference } from "convex/server";
+import { parseListImport } from "@/lib/list-import";
 
 const listId = "fixture-list" as Id<"lists">;
 let detail: { list: Doc<"lists">; gifts: Doc<"gifts">[] } = {
@@ -15,6 +16,13 @@ const listeners = new Set<() => void>();
 let revision = 0;
 function notify() { revision++; listeners.forEach(listener => listener()); }
 const params = new URLSearchParams(location.search);
+if (params.has("gift-limit") || params.has("near-gift-limit")) {
+  const total = params.has("gift-limit") ? 15 : 14;
+  while (detail.gifts.length < total) {
+    const index = detail.gifts.length;
+    detail.gifts.push({ ...detail.gifts[1], _id: `fixture-extra-${index}` as Id<"gifts">, title: `Regalo ${index + 1}` });
+  }
+}
 const token = "A".repeat(43);
 const guestSecret = "S".repeat(43);
 let guestSessions = params.has("with-guest") ? [{ id: "fixture-guest" as Id<"guestSessions">, name: "Ospite 1", status: "active" as "active" | "revoked" }] : [];
@@ -60,12 +68,18 @@ export function useQuery(reference: FunctionReference<"query">, args?: { secret?
   if (name === "guests:listSessions") return guestSessions;
   if (name === "guests:getDetail") return args?.secret !== guestSecret ? { access: "unavailable" } : params.has("revoked") ? { access: "revoked" } : { access: "active", detail: participantDetail() };
   if (name === "invites:preview") return params.has("invalid-invite") ? null : preview;
-  if (name === "lists:getOwned") return params.has("empty-lists") ? [] : [
+  if (name === "lists:getOwned") {
+    const owned = [
     { id: listId, title: "Il mio compleanno", description: "Piccole cose che mi fanno felice, da scoprire un desiderio alla volta.", cover: "plum", status: "active", giftCount: 8, date: "2026-11-12" },
     { id: "fixture-home", title: "Un posto da chiamare casa", description: "Idee e dettagli per la nostra nuova casa.", cover: "sage", status: "active", giftCount: 12 },
     { id: "fixture-christmas", title: "La magia del Natale", description: "Un pensiero da scartare insieme.", cover: "sand", status: "active", giftCount: 4, date: "2026-12-25" },
     { id: "fixture-archived", title: "La mia laurea", description: "Un traguardo speciale.", cover: "sand", status: "archived", giftCount: 6 },
-  ];
+    ];
+    if (params.has("empty-lists")) return [];
+    if (params.has("below-list-limit")) return owned.slice(0, 2);
+    if (params.has("list-limit")) return [owned[0], owned[1], owned[3]];
+    return owned;
+  }
   if (name === "lists:getJoined") return [{ id: listId, title: detail.list.title, description: detail.list.description, cover: detail.list.cover, status: detail.list.status, owner: "Gabriele", giftCount: detail.gifts.length }];
   if (name === "lists:getParticipantDetail") return participantDetail();
   return { ...detail, list: { ...detail.list, imageUrl: imageUrls.get(listId) }, gifts: detail.gifts.map(gift => ({ ...gift, imageUrl: imageUrls.get(gift._id) })) };
@@ -129,7 +143,15 @@ type RemoveValues = { giftId: Id<"gifts">; expectedVersion: number };
 
 export function useMutation(reference: FunctionReference<"mutation">) {
   const name = getFunctionName(reference);
-  return async (args: GiftValues | EditValues | RemoveValues | { listId?: Id<"lists">; archived?: boolean; membershipId?: Id<"memberships">; token?: string; guestSessionId?: Id<"guestSessions">; giftId?: Id<"gifts">; name?: string; amountCents?: number; body?: string; noteId?: Id<"giftNotes"> }) => {
+  return async (args: GiftValues | EditValues | RemoveValues | { json: string } | { listId?: Id<"lists">; archived?: boolean; membershipId?: Id<"memberships">; token?: string; guestSessionId?: Id<"guestSessions">; giftId?: Id<"gifts">; name?: string; amountCents?: number; body?: string; noteId?: Id<"giftNotes"> }) => {
+    if (name === "lists:importJson") {
+      const calls = Number(document.body.dataset.importAttempts || 0) + 1;
+      document.body.dataset.importAttempts = String(calls);
+      if (params.has("import-error-once") && calls === 1) throw new Error("Simulated import failure");
+      const imported = parseListImport((args as { json: string }).json);
+      document.body.dataset.importedList = JSON.stringify(imported);
+      notify(); return listId;
+    }
     if (name === "images:remove") {
       const target = args as { listId: string; giftId?: string };
       const key = target.giftId ?? target.listId;

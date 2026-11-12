@@ -6,6 +6,7 @@ import { ClerkLoaded, ClerkLoading, useSignIn } from "@clerk/nextjs";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
 import { authError, type AuthOptions } from "@/lib/auth";
+import { AuthFormSkeleton } from "./auth-form-skeleton";
 import { AuthHeading, AuthSessionStatus, AuthSubmit, CodeField, PasswordField, Resend, checked, useAuthAction, useAuthNavigation, useStepFocus } from "./auth-controls";
 
 type Step = "identifier" | "password" | "email" | "recovery" | "reset-code" | "new-password" | "mfa";
@@ -14,7 +15,11 @@ const factorNames: Record<Factor, string> = { email_code: "Codice via email", ph
 
 export function CustomSignIn({ options }: { options: AuthOptions }) {
   const { t } = useI18n();
-  return <><ClerkLoading><AuthHeading title={t("Accedi")}>{t("Ritrova i tuoi desideri e le persone con cui condividerli.")}</AuthHeading><p role="status">{t("Caricamento dell’accesso…")}</p></ClerkLoading><ClerkLoaded><SignInForm options={options} /></ClerkLoaded></>;
+  return <div className="auth-sign-in-stage">
+    <div className="auth-sign-in-placeholder" aria-hidden="true" inert><AuthFormSkeleton social={options.social} announce={false} /></div>
+    <ClerkLoading><p className="sr-only" role="status">{t("Caricamento dell’accesso…")}</p></ClerkLoading>
+    <ClerkLoaded><div className="auth-sign-in-content"><SignInForm options={options} /></div></ClerkLoaded>
+  </div>;
 }
 
 function SignInForm({ options }: { options: AuthOptions }) {

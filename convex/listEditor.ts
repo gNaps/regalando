@@ -5,6 +5,7 @@ import type { Id } from "./_generated/dataModel";
 import { requireActive, requireOwner, requireUser } from "./lib/access";
 import { text, validateDate } from "./lib/validation";
 import { adjustImageUsage, deleteImage, reserveImageUpload, validateImage } from "./lib/images";
+import { requireListCapacity } from "./lib/betaLimits";
 
 const fields = {
   listId: v.optional(v.id("lists")), title: v.string(), description: v.string(),
@@ -15,7 +16,11 @@ function validate(values: Values) {
   return { title: text(values.title, 100, true), description: text(values.description, 2000), date: validateDate(values.date), cover: values.cover };
 }
 async function authorize(ctx: MutationCtx, listId?: Id<"lists">) {
-  if (!listId) return { user: await requireUser(ctx), list: null };
+  if (!listId) {
+    const user = await requireUser(ctx);
+    await requireListCapacity(ctx, user._id);
+    return { user, list: null };
+  }
   const { user, list } = await requireOwner(ctx, listId);
   requireActive(list.status);
   return { user, list };

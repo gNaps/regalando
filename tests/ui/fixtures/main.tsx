@@ -1,8 +1,9 @@
 import LiveListsPage from "@/app/components/live/list-overview";
-import { StrictMode } from "react";
+import { StrictMode, Suspense, use } from "react";
 import { createRoot } from "react-dom/client";
 import { LiveListDetail } from "@/app/components/live/list-detail";
 import { CustomSignIn } from "@/app/components/auth/sign-in-form";
+import SignInLoading from "@/app/(auth)/sign-in/loading";
 import { CustomSignUp } from "@/app/components/auth/sign-up-form";
 import { AccountMenu } from "@/app/components/live/account-menu";
 import { InviteEntry } from "@/app/components/live/invite-entry";
@@ -18,7 +19,18 @@ import { localeCookie, resolveLocale } from "@/lib/i18n";
 const options: AuthOptions = { username: { enabled: true, required: true }, firstName: { enabled: true, required: false }, lastName: { enabled: true, required: false }, password: { enabled: true, required: true }, social: [{ strategy: "oauth_google", name: "Google" }], signupMode: "public" };
 const auth = new URLSearchParams(window.location.search).get("auth");
 const screen = new URLSearchParams(window.location.search).get("screen");
+const routeLoading = new URLSearchParams(window.location.search).has("route-loading");
+const authPageReady = routeLoading
+  ? new Promise<void>(resolve => window.addEventListener("fixture-auth-page-ready", () => resolve(), { once: true }))
+  : Promise.resolve();
+function DeferredSignIn() {
+  use(authPageReady);
+  return <CustomSignIn options={options} />;
+}
+function SignInScreen() {
+  return routeLoading ? <Suspense fallback={<SignInLoading />}><DeferredSignIn /></Suspense> : <CustomSignIn options={options} />;
+}
 const initialLocale = resolveLocale(document.cookie.split("; ").find(cookie => cookie.startsWith(`${localeCookie}=`))?.split("=")[1]);
 createRoot(document.getElementById("root")!).render(
-  <StrictMode><LocaleProvider initialLocale={initialLocale}><div style={{ padding: "16px 22px", display: "flex", justifyContent: "flex-end" }}><LanguageSwitcher /></div>{screen === "lists" ? <main className="main-content"><LiveListsPage /></main> : screen === "invite" ? <main className="main-content invite-main"><InviteEntry token={"A".repeat(43)} /></main> : screen === "friends" ? <main className="main-content"><FriendsOverview /></main> : auth === "menu" ? <header className="app-header"><div className="header-inner"><span>Regalando</span><AccountMenu /></div></header> : auth ? <main className="auth-panel" style={{ maxWidth: 440, margin: "40px auto" }}>{auth === "signup" ? <CustomSignUp options={options} /> : <CustomSignIn options={options} />}</main> : <main className="main-content"><LiveListDetail id="fixture-list" /></main>}</LocaleProvider></StrictMode>,
+  <StrictMode><LocaleProvider initialLocale={initialLocale}><div style={{ padding: "16px 22px", display: "flex", justifyContent: "flex-end" }}><LanguageSwitcher /></div>{screen === "lists" ? <main className="main-content"><LiveListsPage /></main> : screen === "invite" ? <main className="main-content invite-main"><InviteEntry token={"A".repeat(43)} /></main> : screen === "friends" ? <main className="main-content"><FriendsOverview /></main> : auth === "menu" ? <header className="app-header"><div className="header-inner"><span>Regalando</span><AccountMenu /></div></header> : auth ? <main className="auth-panel" style={{ maxWidth: 440, margin: "40px auto" }}>{auth === "signup" ? <CustomSignUp options={options} /> : <SignInScreen />}</main> : <main className="main-content"><LiveListDetail id="fixture-list" /></main>}</LocaleProvider></StrictMode>,
 );

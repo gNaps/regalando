@@ -6,6 +6,7 @@ import { deleteImage } from "./lib/images";
 import { giftFields } from "./schema";
 import { requireOwner, requireActive } from "./lib/access";
 import { text, validatePrice, validateUrl } from "./lib/validation";
+import { requireGiftCapacity } from "./lib/betaLimits";
 
 type GiftValues = Pick<Doc<"gifts">, "title" | "description" | "priceCents" | "currency" | "category" | "priority" | "locations">;
 
@@ -44,10 +45,10 @@ function snapshot(gift: GiftValues): GiftValues {
 export async function createGift(ctx: MutationCtx, args: GiftValues & { listId: Id<"lists"> }) {
     const { list } = await requireOwner(ctx, args.listId);
     requireActive(list.status);
+    const giftCount = await requireGiftCapacity(ctx, list._id);
     const values = validateGift(args);
     const now = Date.now();
     const giftId = await ctx.db.insert("gifts", { listId: args.listId, ...values, version: 1, removed: false, updatedAt: now });
-    const giftCount = list.giftCount ?? (await ctx.db.query("gifts").withIndex("by_list", q => q.eq("listId", list._id).eq("removed", false)).collect()).length - 1;
     await ctx.db.patch(list._id, { giftCount: giftCount + 1, updatedAt: now });
     return giftId;
 }

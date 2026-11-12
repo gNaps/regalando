@@ -1,13 +1,39 @@
-import { v } from "convex/values";
+import { ConvexError, v } from "convex/values";
 import { mutation, query } from "./_generated/server";
 import { requireUser, requireOwner, requireParticipant } from "./lib/access";
 import { text, validateDate } from "./lib/validation";
 import { participantView } from "./lib/participantView";
+import { ListImportError, parseListImport } from "../lib/list-import";
+import { validateGift } from "./gifts";
+import { requireListCapacity } from "./lib/betaLimits";
+
+export const importJson = mutation({
+  args: { json: v.string() },
+  handler: async (ctx, { json }) => {
+    const user = await requireUser(ctx);
+    await requireListCapacity(ctx, user._id);
+    let imported;
+    try { imported = parseListImport(json); }
+    catch (error) {
+      if (error instanceof ListImportError) throw new ConvexError({ message: error.message, field: error.field });
+      throw error;
+    }
+    const gifts = imported.gifts.map(validateGift);
+    const now = Date.now();
+    const listId = await ctx.db.insert("lists", {
+      ownerId: user._id, title: imported.title, description: imported.description, date: imported.date,
+      cover: imported.cover, status: "active", giftCount: gifts.length, updatedAt: now,
+    });
+    for (const gift of gifts) await ctx.db.insert("gifts", { ...gift, listId, removed: false, version: 1, updatedAt: now });
+    return listId;
+  },
+});
 
 export const create = mutation({
   args: { title: v.string(), description: v.string(), date: v.optional(v.string()), cover: v.union(v.literal("plum"), v.literal("sage"), v.literal("sand")) },
   handler: async (ctx, args) => {
     const user = await requireUser(ctx);
+    await requireListCapacity(ctx, user._id);
     return ctx.db.insert("lists", { ownerId: user._id, title: text(args.title, 100, true), description: text(args.description, 2000), date: validateDate(args.date), cover: args.cover, status: "active", giftCount: 0, updatedAt: Date.now() });
   },
 });

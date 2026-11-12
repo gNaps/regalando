@@ -18,6 +18,7 @@ import { GiftForm, ListForm, type ListFormValues } from "../ui/forms";
 import { ImageEditor } from "./image-editor";
 import { InviteManager } from "./invite-manager";
 import { ParticipantDetail } from "./participant-detail";
+import { betaGiftLimitMessage, betaLimits } from "@/lib/beta-limits";
 
 function giftFormValues(gift: Doc<"gifts">): Gift {
   const online = gift.locations.find(location => location.kind === "online");
@@ -90,6 +91,7 @@ function OwnerListDetail({ id }: { id: string }) {
   }
   async function save(gift: Omit<Gift, "id">, photo: PhotoChange) {
     if (pending) return;
+    if (!editing && data && data.gifts.length >= betaLimits.giftsPerList) { setError(betaGiftLimitMessage); return; }
     setPending(true); setError("");
     try {
       const values = { title: gift.title, description: gift.description, priceCents: gift.priceCents, currency: "EUR" as const, category: gift.category, priority: gift.favorite ? "favorite" as const : "normal" as const, locations: giftLocations(gift, editing?.locations), photo: photo instanceof Blob ? await photo.arrayBuffer() : photo };
@@ -106,9 +108,10 @@ function OwnerListDetail({ id }: { id: string }) {
   }
   if (!data) return <div className="loading-state" role="status"><LoaderCircle size={20} />{t("Caricamento della lista…")}</div>;
   const { list, gifts } = data;
+  const giftLimitReached = gifts.length >= betaLimits.giftsPerList;
   const selected = gifts.find(gift => gift._id === selectedId);
   const visible = gifts.filter(gift => category === "all" || gift.category === category).sort((a, b) => sort === "price" ? (a.priceCents ?? Infinity) - (b.priceCents ?? Infinity) : sort === "name" ? a.title.localeCompare(b.title, locale) : Number(b.priority === "favorite") - Number(a.priority === "favorite"));
-  function openCreate() { setError(""); setCreate(true); }
+  function openCreate() { if (giftLimitReached) return; setError(""); setCreate(true); }
   function openGift(giftId: Id<"gifts">) { setDetailError(""); setRemoveTarget(null); setSelectedId(giftId); }
   function closeForm() {
     if (pending) return;
@@ -148,10 +151,11 @@ function OwnerListDetail({ id }: { id: string }) {
         <SurpriseSeal compact />
         <div>
           <button className="button secondary" disabled={pending} onClick={() => setInviting(true)}><Users size={17} aria-hidden="true" />{list.status === "active" ? t("Invita amici") : t("Partecipanti")}</button>
-          {list.status === "active" && <button ref={addButton} className="button primary" disabled={pending} onClick={openCreate}><Plus size={17} aria-hidden="true" />{t("Aggiungi regalo")}</button>}
+          {list.status === "active" && <button ref={addButton} className="button primary" disabled={pending || giftLimitReached} aria-describedby={giftLimitReached ? "gift-create-limit" : undefined} onClick={openCreate}><Plus size={17} aria-hidden="true" />{t("Aggiungi regalo")}</button>}
         </div>
       </div>
     </section>
+    {list.status === "active" && giftLimitReached && <p id="gift-create-limit" className="beta-limit-note" role="status">{t(betaGiftLimitMessage)}</p>}
     {list.status === "archived" && <p className="detail-archive-note"><Archive size={16} aria-hidden="true" />{t("Un’occasione da ricordare. Riattiva la lista per aggiungere nuovi desideri.")}</p>}
     {archiveError && !archiveConfirmation && <p className="form-error" role="alert">{t(archiveError)}</p>}
     {archiveConfirmation && <Dialog title={t("Archiviare questa lista?")} subtitle={t("«{0}» sarà disponibile nella sezione Archiviate.", { "0": list.title })} onClose={() => { if (!pending) { setArchiveConfirmation(false); setArchiveError(""); } }}><div className="archive-dialog-content"><p>{t("I regali e le prenotazioni restano conservati. I partecipanti potranno consultare la lista e annullare le proprie prenotazioni, ma non prenotare altri regali. Potrai riattivarla quando vuoi.")}</p><div className="gift-owner-actions"><button type="button" className="button secondary" disabled={pending} onClick={() => { setArchiveConfirmation(false); setArchiveError(""); }}>{t("Annulla")}</button><button type="button" className="button primary" disabled={pending} onClick={() => changeArchived(true)}><Archive size={16} />{pending ? t("Archiviazione…") : t("Conferma archiviazione")}</button></div>{archiveError && <p className="form-error" role="alert">{t(archiveError)}</p>}</div></Dialog>}
@@ -176,7 +180,7 @@ function OwnerListDetail({ id }: { id: string }) {
         </div>
       </article>)}
     </div>}
-    {(create || editing) && <GiftForm key={editing?._id ?? "create"} initial={editing ? giftFormValues(editing) : undefined} imageUrl={editing ? gifts.find(gift => gift._id === editing._id)?.imageUrl : undefined} pending={pending} error={t(error)} onClose={closeForm} onSave={save} onPreview={url => previewLink({ url })} />}
+    {(create || editing) && <GiftForm creationBlocked={!editing && giftLimitReached ? betaGiftLimitMessage : undefined} key={editing?._id ?? "create"} initial={editing ? giftFormValues(editing) : undefined} imageUrl={editing ? gifts.find(gift => gift._id === editing._id)?.imageUrl : undefined} pending={pending} error={t(error)} onClose={closeForm} onSave={save} onPreview={url => previewLink({ url })} />}
     {inviting && <InviteManager listId={listId} archived={list.status === "archived"} onClose={() => setInviting(false)} />}
     {editingList && <ListForm initial={list} imageUrl={list.imageUrl} pending={pending} error={t(listError)} onClose={() => { if (!pending) setEditingList(false); }} onSave={saveHeader} />}
     {imageTarget && <ImageEditor listId={listId} giftId={imageTarget} imageUrl={gifts.find(gift => gift._id === imageTarget)?.imageUrl} onClose={() => setImageTarget(null)} />}

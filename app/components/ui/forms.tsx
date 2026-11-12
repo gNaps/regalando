@@ -12,7 +12,7 @@ import { CoverArt } from "../ui/artwork";
 
 export type ListFormValues = Pick<WishList, "title" | "description" | "date" | "cover">;
 
-export function ListForm({ initial, imageUrl, onClose, onSave, pending = false, error }: { initial?: ListFormValues; imageUrl?: string | null; onClose: () => void; onSave: (values: ListFormValues, photo: PhotoChange) => void; pending?: boolean; error?: string }) {
+export function ListForm({ initial, imageUrl, onClose, onSave, onImport, creationBlocked, pending = false, error }: { initial?: ListFormValues; imageUrl?: string | null; onClose: () => void; onSave: (values: ListFormValues, photo: PhotoChange) => void; onImport?: () => void; creationBlocked?: string; pending?: boolean; error?: string }) {
   const { t } = useI18n();
   const [photo, setPhoto] = useState<PhotoChange>(undefined);
   const [preparing, setPreparing] = useState(false);
@@ -20,7 +20,7 @@ export function ListForm({ initial, imageUrl, onClose, onSave, pending = false, 
   const [dirty, setDirty] = useState(false);
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || preparing) return;
+    if (pending || preparing || (!initial && creationBlocked)) return;
     const data = new FormData(event.currentTarget);
     const title = String(data.get("title")).trim();
     if (!title) { const input = event.currentTarget.querySelector<HTMLInputElement>("[name=title]"); input?.setCustomValidity(t("Scrivi un titolo per la lista.")); input?.reportValidity(); return; }
@@ -35,13 +35,15 @@ export function ListForm({ initial, imageUrl, onClose, onSave, pending = false, 
       <PhotoField value={photo} imageUrl={imageUrl} disabled={pending} onPreparing={setPreparing} onChange={value => { setPhoto(value); setDirty(true); }} />
       <fieldset className="cover-picker"><legend>{t("Scegli l’atmosfera")}</legend><div className="cover-options">{(["plum", "sage", "sand"] as const).map((color, index) => <button key={color} type="button" className={`cover-option ${cover === color ? "selected" : ""}`} aria-label={[t("Nero"), t("Argento"), t("Oro")][index]} aria-pressed={cover === color} onClick={() => { setCover(color); setDirty(true); }}><span className="cover-option-preview"><CoverArt cover={color} preview /></span><span>{[t("Nero"), t("Argento"), t("Oro")][index]}{cover === color && <span aria-hidden="true"> ✓</span>}</span></button>)}</div></fieldset>
       {error && <p className="form-error" role="alert">{t(error)}</p>}
-      <div className="form-actions"><button type="submit" disabled={pending || preparing} className="button primary">{pending ? t("Salvataggio…") : initial ? t("Salva modifiche") : t("Crea la tua lista")}<ArrowRight size={17} /></button></div>
+      {!initial && creationBlocked && <p className="beta-limit-note" role="status">{t(creationBlocked)}</p>}
+      <div className="form-actions"><button type="submit" disabled={pending || preparing || Boolean(!initial && creationBlocked)} className="button primary">{pending ? t("Salvataggio…") : initial ? t("Salva modifiche") : t("Crea la tua lista")}<ArrowRight size={17} /></button></div>
+      {!initial && onImport && <button type="button" className="list-import-entry" disabled={pending || preparing || Boolean(creationBlocked)} onClick={() => { if (!dirty || window.confirm(t("Vuoi chiudere e perdere le modifiche?"))) onImport(); }}>{t("Importa JSON")}</button>}
       </fieldset>
     </form>
   </Dialog>;
 }
 
-export function GiftForm({ initial, imageUrl, onClose, onSave, onPreview, pending = false, error: saveError }: { initial?: Gift; imageUrl?: string | null; onClose: () => void; onSave: (gift: Omit<Gift, "id">, photo: PhotoChange) => void; onPreview?: (url: string) => Promise<LinkPreview>; pending?: boolean; error?: string }) {
+export function GiftForm({ initial, imageUrl, onClose, onSave, onPreview, creationBlocked, pending = false, error: saveError }: { initial?: Gift; imageUrl?: string | null; onClose: () => void; onSave: (gift: Omit<Gift, "id">, photo: PhotoChange) => void; onPreview?: (url: string) => Promise<LinkPreview>; creationBlocked?: string; pending?: boolean; error?: string }) {
   const { t } = useI18n();
   const [photo, setPhoto] = useState<PhotoChange>(undefined);
   const [preparing, setPreparing] = useState(false);
@@ -78,7 +80,7 @@ export function GiftForm({ initial, imageUrl, onClose, onSave, onPreview, pendin
   }
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (pending || preparing) return;
+    if (pending || preparing || (!initial && creationBlocked)) return;
     const form = new FormData(event.currentTarget);
     const title = String(form.get("title")).trim();
     // A pasted product link counts as the online location even if the person never asked for a preview.
@@ -107,7 +109,8 @@ export function GiftForm({ initial, imageUrl, onClose, onSave, onPreview, pendin
       <details className="form-details" open={locationsOpen} onToggle={event => setLocationsOpen(event.currentTarget.open)}><summary>{t("Dove trovarlo") + " "}<span className="optional">{t("facoltativo")}</span></summary><label>{t("Link online")}<input name="url" type="url" maxLength={2048} defaultValue={initial?.url} placeholder="https://…" /></label><label>{t("Negozio fisico")}<input name="shop" maxLength={150} defaultValue={initial?.shop} placeholder={t("Nome del negozio")} /></label><label>{t("Indirizzo del negozio") + " "}<span className="optional">{t("facoltativo")}</span><input name="shopAddress" maxLength={300} defaultValue={initial?.shopAddress} placeholder={t("Via e città")} /></label></details>
       <label className="checkbox-field"><input type="checkbox" name="favorite" defaultChecked={initial?.favorite} /><Heart size={17} /><span>{t("Lo desidero particolarmente")}</span></label>
       {(error || saveError) && <p className="form-error" role="alert">{t(error || saveError || "")}</p>}
-      <div className="form-actions"><button type="submit" disabled={pending || preparing} className="button primary">{pending ? t("Salvataggio…") : initial ? t("Salva regalo") : t("Aggiungi alla lista")}<ArrowRight size={17} /></button></div>
+      {!initial && creationBlocked && <p className="beta-limit-note" role="status">{t(creationBlocked)}</p>}
+      <div className="form-actions"><button type="submit" disabled={pending || preparing || Boolean(!initial && creationBlocked)} className="button primary">{pending ? t("Salvataggio…") : initial ? t("Salva regalo") : t("Aggiungi alla lista")}<ArrowRight size={17} /></button></div>
     </form>
   </Dialog>;
 }

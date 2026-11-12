@@ -9,6 +9,8 @@ let revision = 0;
 function notify() { revision++; subscribers.forEach(callback => callback()); }
 function subscribe(callback: () => void) { subscribers.add(callback); return () => { subscribers.delete(callback); }; }
 function useObserve() { useSyncExternalStore(subscribe, () => revision); }
+let clerkReady = !params.has("clerk-loading");
+window.addEventListener("fixture-clerk-ready", () => { clerkReady = true; notify(); }, { once: true });
 const ok = { error: null };
 const session = { id: "fixture-session", status: params.has("pending-session") ? "pending" : "active", currentTask: params.has("pending-session") ? { key: "setup-mfa" } : null } as unknown as SessionResource;
 let sessionAvailable = params.has("existing-session") || params.has("pending-session");
@@ -91,8 +93,8 @@ const signUp = {
 
 export function useSignIn() { useObserve(); return { signIn, errors: { raw: null } }; }
 export function useSignUp() { useObserve(); return { signUp, errors: { raw: null } }; }
-export function ClerkLoaded({ children }: { children: ReactNode }) { return children; }
-export function ClerkLoading() { return null; }
+export function ClerkLoaded({ children }: { children: ReactNode }) { useObserve(); return clerkReady ? children : null; }
+export function ClerkLoading({ children }: { children: ReactNode }) { useObserve(); return clerkReady ? null : children; }
 export function useAuth() { return { userId: params.has("guest") ? null : "fixture-clerk-user" }; }
 export function useUser() { return { isLoaded: true, isSignedIn: !params.has("guest"), user: { fullName: "Giulia Rossi", firstName: "Giulia", username: "giulia", hasImage: false, primaryEmailAddress: { emailAddress: "giulia@example.org" } } }; }
 const clerk = {

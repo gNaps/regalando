@@ -12,6 +12,14 @@ La prima versione viene preparata senza webhook attivi: i profili sono inizializ
 - [Avanzamento e verifiche](docs/IMPLEMENTATION_STATUS.md)
 - [Cancellazione manuale degli account](docs/MANUAL_DELETION.md)
 
+## Limiti del piano gratuito durante la beta
+
+Ogni account può creare al massimo **3 liste**, incluse quelle archiviate, con al massimo **15 regali presenti per lista**. Le creazioni e le importazioni rispettano gli stessi limiti. Gli elementi già esistenti restano consultabili e modificabili; rimuovere un regalo libera un posto nella sua lista.
+
+## Importazione di liste
+
+Da **Le mie liste → Crea una lista → Importa JSON** puoi creare una lista con i suoi regali a partire da un file, controllando l’anteprima prima di salvarla. [Formato, limiti ed esempio](docs/LIST_IMPORT.md).
+
 ## Avvio locale
 
 Servono Node.js 22.12 o superiore e pnpm 12.11.2. `.nvmrc` seleziona Node 24.6.0, secondo la configurazione locale scelta.

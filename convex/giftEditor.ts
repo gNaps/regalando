@@ -6,6 +6,7 @@ import { giftFields } from "./schema";
 import { createGift, updateGift, validateGift } from "./gifts";
 import { requireActive, requireOwner } from "./lib/access";
 import { adjustImageUsage, deleteImage, reserveImageUpload, validateImage } from "./lib/images";
+import { requireGiftCapacity } from "./lib/betaLimits";
 
 const targetFields = { listId: v.id("lists"), giftId: v.optional(v.id("gifts")), expectedVersion: v.optional(v.number()) };
 async function authorize(ctx: MutationCtx, args: { listId: Id<"lists">; giftId?: Id<"gifts">; expectedVersion?: number }) {
@@ -20,7 +21,8 @@ export const prepare = internalMutation({
   args: { ...targetFields, ...giftFields, uploading: v.boolean() },
   handler: async (ctx, args) => {
     validateGift(args);
-    const { user } = await authorize(ctx, args);
+    const { user, gift } = await authorize(ctx, args);
+    if (!gift) await requireGiftCapacity(ctx, args.listId);
     if (args.uploading) await reserveImageUpload(ctx, user._id);
   },
 });

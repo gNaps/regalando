@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 
 test('crea una lista con foto dal modulo, senza caricamenti prima di salvare', async ({page}) => {
-  await page.goto('/?screen=lists');
+  await page.goto('/?screen=lists&below-list-limit');
   await page.getByRole('button',{name:'Crea una lista',exact:true}).first().click();
   const dialog=page.getByRole('dialog',{name:'Nuova lista',exact:true});
   await dialog.getByLabel('Nome della lista').fill('La mia nuova lista');
