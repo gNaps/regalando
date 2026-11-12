@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    agentUpgrade: "security",
+  },
   devIndicators: false,
   distDir: process.env.REGALANDO_BUILD_DIR || ".next",
   async headers() {
